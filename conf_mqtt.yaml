@@ -1,0 +1,47 @@
+sensor:
+  - name: xiaomi_map
+    state_topic: "valetudo/rockrobo/state"
+    json_attributes_topic: "valetudo/rockrobo/map_data"
+    value_template: 'OK'
+    #scan_interval: 5
+    
+switch:
+  - name: 'Cam10 Switch'
+    state_topic: home_cams/cam10/state
+    command_topic: home_cams/cam10/set
+    payload_on: '1'
+    payload_off: '0'
+    state_on: 1
+    state_off: 0
+    optimistic: false
+    retain: true
+    
+  - name: 'Cam13 Switch'
+    state_topic: home_cams/cam13/state
+    command_topic: home_cams/cam13/set
+    payload_on: '1'
+    payload_off: '0'
+    state_on: '1'
+    state_off: '0'
+    optimistic: false
+    retain: true
+    
+  - name: 'Cam11 Switch'
+    state_topic: home_cams/cam11/state
+    command_topic: home_cams/cam11/set
+    payload_on: '1'
+    payload_off: '0'
+    state_on: '1'
+    state_off: '0'
+    optimistic: false
+    retain: true
+    
+  - name: 'Cam41 Switch'
+    state_topic: home_cams/cam41/state
+    command_topic: home_cams/cam41/set
+    payload_on: '1'
+    payload_off: '0'
+    state_on: '1'
+    state_off: '0'
+    optimistic: false
+    retain: true

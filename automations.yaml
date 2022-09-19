@@ -1,0 +1,343 @@
+- id: 8da25ab7954a48dc8607f1c7f855bc8b
+  alias: '[Bedroom Wall Switch] Click left'
+  trigger:
+  - platform: event
+    event_type: xiaomi_aqara.click
+    event_data:
+      entity_id: binary_sensor.bedroom_switch_wall_left
+      click_type: single
+  action:
+  - service: light.toggle
+    data:
+      brightness_pct: 100
+      color_name: coral
+    target:
+      entity_id: light.bedroom_light_gateway
+  mode: single
+- id: d8db3bce67cf4a99aab6afbec89ccb85
+  alias: '[Bedroom Wall Switch] Click right'
+  trigger:
+  - platform: event
+    event_type: xiaomi_aqara.click
+    event_data:
+      entity_id: binary_sensor.bedroom_switch_wall_right
+      click_type: single
+  action:
+  - service: light.toggle
+    data:
+      entity_id: light.bedroom_light
+  mode: single
+- id: 14a1d0ef346048388b6e5e880fb1c9a8
+  alias: Kitchen Toggle Light
+  trigger:
+  - event_data:
+      click_type: single
+      entity_id: binary_sensor.kitchen_switch_wall_right
+    event_type: xiaomi_aqara.click
+    platform: event
+  action:
+  - data:
+      entity_id: light.kitchen_light
+    service: light.toggle
+- id: '1570184266088'
+  alias: '[Home Alarm] Disarmed'
+  trigger:
+  - entity_id: alarm_control_panel.home_alarm
+    platform: state
+    to: disarmed
+  condition: []
+  action:
+  - data:
+      message: Ajax disarmed
+    service: notify.notify
+  - data: {}
+    service: rest_command.syno_home_mode_on
+  - service: switch.turn_off
+    target:
+      entity_id: switch.home_cam10_camera_switch
+  mode: single
+- id: '1571175855087'
+  alias: '[Home Alarm] Armed'
+  trigger:
+  - entity_id: alarm_control_panel.home_alarm
+    platform: state
+    to: armed_away
+  condition: []
+  action:
+  - data:
+      message: Ajax armed
+    service: notify.notify
+  - data: {}
+    service: rest_command.syno_home_mode_off
+  - service: switch.turn_on
+    target:
+      entity_id: switch.home_cam10_camera_switch
+  - service: script.home_lights_off
+  mode: single
+- id: f91c29db32f9490d9dafcbc6d1d07783
+  alias: '[Home] Wake Up'
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.bedroom_bed_sleeping_state
+    from: 'on'
+    to: 'off'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 10
+  condition:
+  - condition: time
+    after: '10:00:00'
+  action:
+  - service: script.home_wake_up
+  mode: single
+- id: '1573309400327'
+  alias: '[Kitchen Light Table] Toggle Led'
+  description: ''
+  trigger:
+  - event_data:
+      click_type: single
+      entity_id: binary_sensor.kitchen_button
+    event_type: xiaomi_aqara.click
+    platform: event
+  - event_data:
+      click_type: single
+      entity_id: binary_sensor.kitchen_switch_wall_left
+    event_type: xiaomi_aqara.click
+    platform: event
+  condition: []
+  action:
+  - data: {}
+    service: light.toggle
+    target:
+      entity_id:
+      - light.kitchen_light_table_led
+- id: '1573309593311'
+  alias: '[Kitchen Light Table] Toggle Lamp'
+  description: ''
+  trigger:
+  - event_data:
+      click_type: double
+      entity_id: binary_sensor.kitchen_button
+    event_type: xiaomi_aqara.click
+    platform: event
+  - event_data:
+      click_type: double
+      entity_id: binary_sensor.kitchen_switch_wall_left
+    event_type: xiaomi_aqara.click
+    platform: event
+  condition: []
+  action:
+  - data: {}
+    service: light.toggle
+    target:
+      entity_id: light.kitchen_light_table_lamp
+- id: '1585613948017'
+  alias: Kitchen Toggle All Lights
+  description: ''
+  trigger:
+  - event_data:
+      click_type: long_both
+      entity_id: binary_sensor.kitchen_switch_wall_both
+    event_type: xiaomi_aqara.click
+    platform: event
+  - event_data:
+      click_type: hold
+      entity_id: binary_sensor.kitchen_button
+    event_type: xiaomi_aqara.click
+    platform: event
+  condition: []
+  action:
+  - data: {}
+    entity_id: light.kitchen_lights
+    service: light.toggle
+- id: '1585703599289'
+  alias: '[Workroom Wall Switch] Click Left'
+  description: ''
+  trigger:
+  - event_data:
+      click_type: single
+      entity_id: binary_sensor.workroom_switch_wall_left
+    event_type: xiaomi_aqara.click
+    platform: event
+  condition: []
+  action:
+  - data: {}
+    service: light.toggle
+    target:
+      entity_id: light.workroom_light_wall
+  mode: single
+- id: '1587125423415'
+  alias: Turn off humidifier when window opened
+  description: ''
+  trigger:
+  - entity_id: binary_sensor.bedroom_window_magnet
+    for: 00:00:10
+    from: 'off'
+    platform: state
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: humidifier.bedroom_hygrostat
+    state: 'on'
+  action:
+  - service: humidifier.turn_off
+    target:
+      entity_id: humidifier.bedroom_hygrostat
+  - wait_for_trigger:
+    - platform: state
+      entity_id: binary_sensor.bedroom_window_magnet
+      to: 'off'
+    continue_on_timeout: false
+  - service: humidifier.turn_on
+    target:
+      entity_id: humidifier.bedroom_hygrostat
+  mode: single
+- id: '1595085141876'
+  alias: '[Test] Home Odya Is Coming'
+  description: ''
+  trigger:
+  - entity_id: person.odya
+    event: enter
+    platform: zone
+    zone: zone.home
+  - entity_id: device_tracker.iphone_odya
+    event: enter
+    platform: zone
+    zone: zone.home
+  condition: []
+  action:
+  - data:
+      message: Odya is coming home
+    service: notify.notify
+  mode: single
+- id: '1595085267523'
+  alias: Home Odya is Leaving
+  description: ''
+  trigger:
+  - entity_id: person.odya
+    event: leave
+    platform: zone
+    zone: zone.home
+  condition: []
+  action:
+  - data:
+      message: Odya is Leaving Home
+    service: notify.notify
+- id: '1597274587019'
+  alias: '[Away Mode Lights] Turn on the lights when the sun is set'
+  description: ''
+  trigger:
+  - event: sunset
+    platform: sun
+  condition: []
+  action:
+  - device_id: e061241c09d140ec830c5f06bd3c3081
+    domain: light
+    entity_id: light.kitchen_light
+    type: turn_on
+  mode: single
+- id: '1597274711264'
+  alias: '[Away Mode Lights] Turn off kitchen light at 1:00'
+  description: ''
+  trigger:
+  - at: 01:00
+    platform: time
+  condition: []
+  action:
+  - device_id: e061241c09d140ec830c5f06bd3c3081
+    domain: light
+    entity_id: light.kitchen_light
+    type: turn_off
+  mode: single
+- id: '1597274872549'
+  alias: '[Away Mode Lights] Turn on bedroom lights at 00:13'
+  description: ''
+  trigger:
+  - at: 00:13
+    platform: time
+  condition: []
+  action:
+  - device_id: d565db09bf45490a9cd839fccbf6bf2e
+    domain: light
+    entity_id: light.bedroom_light
+    type: turn_on
+  mode: single
+- id: '1597274928316'
+  alias: '[Away Mode Lights] Turn off bedroom light at 01:08'
+  description: ''
+  trigger:
+  - at: 01:08
+    platform: time
+  condition: []
+  action:
+  - device_id: d565db09bf45490a9cd839fccbf6bf2e
+    domain: light
+    entity_id: light.bedroom_light
+    type: turn_off
+  mode: single
+- id: '1603056584214'
+  alias: '[Workroom Wall Switch] Click Right'
+  description: ''
+  trigger:
+  - event_data:
+      click_type: single
+      entity_id: binary_sensor.workroom_switch_wall_right
+    event_type: xiaomi_aqara.click
+    platform: event
+  condition: []
+  action:
+  - data: {}
+    entity_id: light.workroom_light
+    service: light.toggle
+  mode: single
+- id: '243214321423423423'
+  alias: Random Away Lights
+  trigger:
+  - platform: time_pattern
+    minutes: /30
+  condition:
+  - condition: time
+    after: '18:20:00'
+    before: 03:00:00
+  action:
+  - service: script.light_duration
+    data:
+      light: '{{states.light.simulation_lights.attributes.entity_id | random}}'
+      duration: 00:{{ '{:02}'.format(range(5,30) | random | int) }}:00
+  mode: parallel
+  max: 10
+- id: '1613058785754'
+  alias: '[Workroom Feeder] Auto Feed'
+  description: ''
+  trigger:
+  - platform: time
+    at: 00:00
+  - platform: time
+    at: 08:00
+  - platform: time
+    at: '16:00'
+  condition: []
+  action:
+  - service: esphome.workroom_feeder_do_feed
+    data_template:
+      sections: 1
+  mode: single
+- id: '1641997994972'
+  alias: '[Home] Go sleep'
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.bedroom_bed_sleeping_state
+    from: 'off'
+    to: 'on'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  condition:
+  - condition: time
+    after: 00:00:00
+  action:
+  - service: script.1587174693695
+  mode: single

@@ -1,0 +1,77 @@
+# - platform: template
+#   sensors:
+#     bedroom_air_co2:
+#       friendly_name: "Bedroom Air CO2"
+#       unit_of_measurement: "ppm"
+#       value_template: "{{ state_attr('air_quality.bedroom_air_quality', 'carbon_dioxide_equivalent') }}"
+# - platform: template
+#   sensors:
+#     bedroom_air_tvoc:
+#       friendly_name: "Bedroom Air TVOC"
+#       unit_of_measurement: "mg/m3"
+#       value_template: "{{ state_attr('air_quality.bedroom_air_quality', 'total_volatile_organic_compounds') }}"
+# - platform: template
+#   sensors:
+#     bedroom_air_pm25:
+#       friendly_name: "Bedroom Air PM 2.5"
+#       unit_of_measurement: "mg/m3"
+#       value_template: "{{ state_attr('air_quality.bedroom_air_quality', 'particulate_matter_2_5') }}"
+# - platform: template
+#   sensors:
+#     bedroom_air_humidity:
+#       friendly_name: "Bedroom Air Humidity"
+#       unit_of_measurement: "%"
+#       value_template: "{{ state_attr('air_quality.bedroom_air_quality', 'humidity') }}"
+# - platform: template
+#   sensors:
+#     bedroom_air_temperature:
+#       friendly_name: "Bedroom Air Temperature"
+#       unit_of_measurement: "°C"
+#       value_template: "{{ state_attr('air_quality.bedroom_air_quality', 'temperature') }}"
+      
+- platform: min_max
+  name: bath_minmax_humidity
+  entity_ids:
+    - sensor.bath_humidity
+    - sensor.bath_vent_humidity
+    
+- platform: time_date
+  display_options:
+    - 'date_time'
+  
+- platform: command_line
+  name: system_cpu_temperature
+  command: "cat /sys/class/thermal/thermal_zone0/temp"
+  unit_of_measurement: "°C"
+  value_template: '{{ value | multiply(0.001) | round(1) }}'
+  
+- platform: template
+  sensors:
+    bath_lobby_diff_humidity:
+      friendly_name: "Bath Lobby Diff Humidity"
+      unit_of_measurement: "%"
+      value_template: "{{ (states('sensor.bath_minmax_humidity')|float - states('sensor.lobby_humidity')|float) | round(1) }}"
+      
+- platform: template
+  sensors:
+    rockrobo_vacuum_v1_sensor_dirty_left_hours:
+      friendly_name: "Mi Robot Vacuum Sensor Dirty Left (Hours)"
+      unit_of_measurement: "hours"
+      value_template: "{{ (states('sensor.rockrobo_vacuum_v1_sensor_dirty_left')|float / 3600) | round(0) }}"
+    rockrobo_vacuum_v1_filter_left_hours:
+      friendly_name: "Mi Robot Vacuum Filter Left (Hours)"
+      unit_of_measurement: "hours"
+      value_template: "{{ (states('sensor.rockrobo_vacuum_v1_filter_left')|float / 3600) | round(0) }}"
+    rockrobo_vacuum_v1_main_brush_left_hours:
+      friendly_name: "Mi Robot Vacuum Main Brush Left (Hours)"
+      unit_of_measurement: "hours"
+      value_template: "{{ (states('sensor.rockrobo_vacuum_v1_main_brush_left')|float / 3600) | round(0) }}"
+    rockrobo_vacuum_v1_side_brush_left_hours:
+      friendly_name: "Mi Robot Vacuum Side Brush Left (Hours)"
+      unit_of_measurement: "hours"
+      value_template: "{{ (states('sensor.rockrobo_vacuum_v1_side_brush_left')|float / 3600) | round(0) }}"
+      
+      
+      
+      
+      

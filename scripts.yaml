@@ -1,0 +1,199 @@
+ac_temp_25:
+  sequence:
+  - service: remote.send_command
+    data:
+      entity_id: remote.bedroom_rc1_remote
+      command: b64:JgBoAMP5EncRdxJ1EXcTMRI0EnUSMxI0EjMUMBIzEnYTdRMyEnYSMxJ2EnUSNBF2EnYSdhMyEXcRNBIyEnYSMxIzEjMSdhIzEXcSMhJ3EjISdhIzEzISdhIzEXcSMxJ2ETMSdxF2EvkSAA0F
+ac_on:
+  sequence:
+  - service: remote.send_command
+    data:
+      command: b64:JgBoAMP5EnUSdhJ2EnUTMxIzEXcRNBEzEjMSMxI0EXYSdhIzEnYSMhJ3EXcRMxN1EnUTdRMyE3USMxMyEnYTMhIzEjMTdRE0EnUTMxJ1EjQRdhIzEjMSdhIzEnUSNBF2EjQRdhJ2E/gTAA0F
+    target:
+      entity_id: remote.bedroom_rc1_remote
+  mode: single
+'1587174693695':
+  alias: Go Sleep
+  sequence:
+  - service: humidifier.turn_off
+    target:
+      entity_id: humidifier.bedroom_hygrostat
+  - type: turn_off
+    device_id: 8a4a28b6336b2c3faac2973614240632
+    entity_id: switch.bath_switch_drinking_well
+    domain: switch
+  - data: {}
+    entity_id: group.home_lights
+    service: script.home_lights_off
+  - service: climate.turn_off
+    target:
+      entity_id:
+      - climate.bedroom_ac
+      - climate.kitchen_climate
+      - climate.bedroom_climate
+  - service: light.turn_on
+    data:
+      brightness_pct: 90
+      rgb_color:
+      - 255
+      - 165
+      - 0
+    target:
+      entity_id: light.bedroom_light_gateway
+  - service: script.bedroom_gateway_light_fade_out
+    data: {}
+  mode: single
+  icon: mdi:weather-night
+vacuum_reset_sensors:
+  alias: '[Vacuum] Reset hours for sensors'
+  sequence:
+  - service: vacuum.send_command
+    data:
+      command: reset_consumable
+      params:
+      - sensor_dirty_time
+    target:
+      entity_id:
+      - vacuum.rockrobo_vacuum_v1
+  mode: single
+vacuum_reset_main_brush:
+  alias: '[Vacuum] Reset hours for main brush replacement'
+  sequence:
+  - service: vacuum.send_command
+    data:
+      command: reset_consumable
+      params:
+      - main_brush_work_time
+    target:
+      device_id: eb698cfddbd7219efbcded8a4a017d44
+  mode: single
+vacuum_reset_side_brush:
+  alias: '[Vacuum] Reset hours for side brush replacement'
+  sequence:
+  - service: vacuum.send_command
+    data:
+      command: reset_consumable
+      params:
+      - side_brush_work_time
+    target:
+      entity_id: vacuum.rockrobo_vacuum_v1
+  mode: single
+vacuum_reset_filter:
+  alias: '[Vacuum] Reset hours for filter replacement'
+  sequence:
+  - service: vacuum.send_command
+    data:
+      command: reset_consumable
+      params:
+      - filter_work_time
+    target:
+      entity_id: vacuum.rockrobo_vacuum_v1
+  mode: single
+home_lights_off:
+  alias: Home Lights Off
+  sequence:
+  - service: light.turn_off
+    data: {}
+    entity_id: group.home_lights
+  mode: single
+bedroom_gateway_light_fade_out:
+  alias: Bedroom Gateway Light Fade Out
+  sequence:
+  - repeat:
+      until:
+      - condition: numeric_state
+        entity_id: light.bedroom_light_gateway
+        attribute: brightness
+        below: '1'
+      sequence:
+      - service: light.turn_on
+        data:
+          brightness_step_pct: -2
+          transition: 2
+        entity_id: light.bedroom_light_gateway
+      - delay: '1'
+  - type: turn_off
+    device_id: 69e5648883ec4828874e5fe2e2afc4a0
+    entity_id: light.bedroom_light_gateway
+    domain: light
+  mode: single
+bedroom_remote_projector_on:
+  alias: '[Remote] Projector On'
+  sequence:
+  - service: remote.send_command
+    target:
+      entity_id: remote.bedroom_rc1_remote
+    data:
+      device: bedroom_projector
+      command: Turn on
+  mode: single
+bedroom_remote_projector_off:
+  alias: '[Remote] Projector Off'
+  sequence:
+  - service: remote.send_command
+    target:
+      entity_id: remote.bedroom_rc1_remote
+    data:
+      device: bedroom_projector
+      command: Turn off
+  - delay: '3'
+  - service: remote.send_command
+    target:
+      entity_id: remote.bedroom_rc1_remote
+    data:
+      device: bedroom_projector
+      command: Turn off
+  mode: single
+workroom_feeder_feed:
+  alias: '[Workroom Feeder] Feed'
+  sequence:
+  - service: esphome.workroom_feeder_do_feed
+    data_template:
+      sections: 1
+  mode: single
+  icon: mdi:cat
+light_duration:
+  mode: parallel
+  description: Turns on a light for a while, and then turns it off
+  fields:
+    light:
+      description: A specific light
+      example: light.bedroom
+    duration:
+      description: How long the light should be on in minutes
+      example: '25'
+  sequence:
+  - service: homeassistant.turn_on
+    data:
+      entity_id: '{{ light }}'
+  - delay: '{{ duration }}'
+  - service: homeassistant.turn_off
+    data:
+      entity_id: '{{ light }}'
+  max: 10
+bath_vent_always_on:
+  sequence:
+  - service: switch.turn_on
+    target:
+      entity_id: switch.bath_vent
+  mode: single
+  alias: '[Bath Vent] Always On'
+home_wake_up:
+  alias: '[Home] Wake Up'
+  sequence:
+  - service: humidifier.turn_on
+    target:
+      entity_id: humidifier.bedroom_hygrostat
+  - type: turn_on
+    device_id: 8a4a28b6336b2c3faac2973614240632
+    entity_id: switch.bath_switch_drinking_well
+    domain: switch
+  - service: spotcast.start
+    data:
+      uri: spotify:playlist:37i9dQZEVXcIrL4FtyzrXa
+      random_song: true
+      device_name: All house
+      start_volume: 50
+      shuffle: true
+  mode: single
+  icon: mdi:sleep-off

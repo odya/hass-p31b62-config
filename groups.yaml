@@ -1,0 +1,19 @@
+home_lights:
+  name: Home Lights
+  entities:
+    - light.kitchen_light
+    - light.kitchen_light_table_led
+    - light.kitchen_light_table_lamp
+    - light.bedroom_light
+    - light.bedroom_light_gateway
+    - light.bedroom_led_table_light
+    - light.workroom_light_wall
+    - light.workroom_light
+    
+simulation_lights:
+  name: simulation_lights
+  entities:
+    - light.kitchen_light
+    - light.bedroom_light
+    - light.workroom_light
+    - light.bedroom_light_gateway

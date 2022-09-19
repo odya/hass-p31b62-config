@@ -1,0 +1,68 @@
+- platform: generic_thermostat
+  name: "Bedroom Climate"
+  heater: switch.bedroom_heater
+  target_sensor: sensor.bedroom_temperature
+  min_temp: 18
+  max_temp: 26
+  away_temp: 18
+  min_cycle_duration:
+    minutes: 60
+  hot_tolerance: 0.5
+  cold_tolerance: 0.5
+  keep_alive:
+    minutes: 5
+  # initial_hvac_mode: "off"
+  
+- platform: generic_thermostat
+  name: "Kitchen Climate"
+  heater: switch.kitchen_heater
+  target_sensor: sensor.kitchen_temperature
+  min_temp: 18
+  max_temp: 26
+  away_temp: 18
+  min_cycle_duration:
+    minutes: 60
+  hot_tolerance: 0.5
+  cold_tolerance: 0.5
+  keep_alive:
+    minutes: 5
+  # initial_hvac_mode: "off"
+  
+- platform: climate_group
+  name: 'Home Climate'
+  temperature_unit: C
+  entities:
+  - climate.bedroom_climate
+  - climate.kitchen_climate
+  
+- platform: smartir
+  name: Bedroom AC
+  unique_id: bedroom_ac
+  device_code: 1682
+  controller_data: remote.bedroom_rc1_remote
+  temperature_sensor: sensor.bedroom_temperature
+  humidity_sensor: sensor.bedroom_humidity
+  power_sensor: binary_sensor.bedroom_ac_power
+  
+# - platform: programmable_thermostat
+#   name: Bedroom Climate Smart
+#   heater: 
+#     - switch.bedroom_heater
+#   cooler: climate.bedroom_ac
+#   actual_temp_sensor: sensor.bedroom_temperature
+#   min_temp: 15
+#   max_temp: 30
+#   target_temp_sensor: sensor.bedroom_target_temp
+#   tolerance: 0.5
+#   #related_climate: climate.room_2
+#   hvac_options: 7
+#   auto_mode: all
+#   min_cycle_duration:
+#     minutes: 5
+
+# - platform: climate_group
+#   name: 'Bedroom Climate Combined'
+#   temperature_unit: C
+#   entities:
+#   - climate.bedroom_climate
+#   - climate.bedroom_ac

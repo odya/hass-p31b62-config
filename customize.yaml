@@ -1,0 +1,43 @@
+switch.mp1_slot1:
+  friendly_name: DSLR Charger
+switch.mp1_slot2:
+  friendly_name: Battery Charger
+switch.mp1_slot3:
+  friendly_name: Crona Charger
+switch.mp1_slot4:
+  friendly_name: Lamp
+sensor.temperature_158d0001f3687b:
+  room: kitchen
+sensor.bath_vent_temperature:
+  room: bath
+  
+# sensor.bedroom_air_co2:
+#   templates:
+#     icon_color: >
+#       if (state < 1000) return '#44739e';
+#       if (state < 2000) return '#449e88';
+#       if (state < 3000) return '#9e8544';
+#       if (state >= 3000) return '#9e5344';
+# sensor.bedroom_air_tvoc:
+#   templates:
+#     icon_color: >
+#       var hue = Math.round(Number(state)/1000*240);
+#       return 'hsl(' + hue.toString() + ',80%,50%)';
+#       if (state < 1) return '#44739e';
+#       if (state < 3) return '#449e88';
+#       if (state < 9) return '#9e8544';
+#       if (state >= 9) return '#9e5344';
+# sensor.bedroom_air_pm25:
+#   templates:
+#     icon_color: >
+#       if (state < 75) return '#44739e';
+#       if (state < 115) return '#449e88';
+#       if (state < 150) return '#9a9e44';
+#       if (state < 250) return '#9e8544';
+#       if (state >= 250) return '#9e5344';
+
+alarm_control_panel.mqtt_alarm:
+  templates:
+    icon_color: >
+      if (state === 'disarmed') return 'green';
+      if (state === 'armed_away') return 'red';

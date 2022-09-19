@@ -1,0 +1,26 @@
+# - platform: mqtt
+#   name: "Lobby Light Ext"
+#   state_topic: "tasmota/lobby_light_ext/stat/RESULT"  
+#   value_template: "{{ value_json.POWER }}"
+#   command_topic: "tasmota/lobby_light_ext/cmnd/POWER"
+#   payload_on: "ON"
+#   payload_off: "OFF"
+#   availability_topic: "tasmota/lobby_light_ext/tele/LWT"
+#   payload_available: "Online"
+#   payload_not_available: "Offline"
+#   qos: 1
+#   retain: false
+  
+- platform: group
+  name: Kitchen Lights
+  entities:
+    - light.kitchen_light
+    - light.kitchen_light_table_lamp
+    - light.kitchen_light_table_led
+    
+- platform: group
+  name: simulation_lights
+  entities:
+    - light.kitchen_light
+    - light.bedroom_light
+    - light.workroom_light

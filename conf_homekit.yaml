@@ -1,0 +1,6 @@
+- port: 51828
+  advertise_ip: "192.168.10.5"
+  zeroconf_default_interface: true
+  filter:
+    include_domains:
+      - light

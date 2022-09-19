@@ -1,0 +1,320 @@
+homeassistant:
+  # Name of the location where Home Assistant is running
+  name: Home
+  # Impacts weather/sunrise data (altitude above sea level in meters)
+  elevation: 177
+  # metric for Metric, imperial for Imperial
+  unit_system: metric
+  # Pick yours from here: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  time_zone: "Europe/Kiev"
+  # Customization file
+  customize: !include customize.yaml
+  customize_glob: 
+    "*.kitchen_*":
+      room: kitchen
+    "*.bedroom_*":
+      room: bedroom
+  
+config:
+mobile_app:
+system_health:
+zeroconf:
+zone:
+timer:
+person:
+
+frontend:
+input_number:
+input_text:
+panel_iframe:
+sun:
+
+recorder:
+  db_url: !secret recorder_db_url
+  purge_keep_days: 7
+  commit_interval: 60
+  include:
+    domains:
+      - sensor
+      - binary_sensor
+      - device_tracker
+      - person
+      - switch
+      - light
+      - fan
+      - vacuum
+    entity_globs:
+    - binary_sensor.*_occupancy
+    entities:
+      - alarm_control_panel.home_alarm
+  exclude:
+    entity_globs:
+    - sensor.iphone_*
+  
+logbook:
+
+history:
+  include:
+    domains:
+      - sensor
+      - binary_sensor
+      - device_tracker
+      - person
+      - switch
+      - light
+      - fan
+      - vacuum
+      
+influxdb:
+  api_version: 2
+  host: !secret influxdb_host
+  port: !secret influxdb_port
+  token: !secret influxdb_token
+  organization: !secret influxdb_organization
+  bucket: !secret influxdb_bucket
+  ssl: false
+  verify_ssl: false
+  max_retries: 3
+  precision: s
+  default_measurement: state
+  include:
+    domains:
+      - sensor
+      - switch
+      - binary_sensor
+  tags:
+    instance: hass
+  tags_attributes:
+  - room
+  ignore_attributes:
+  - friendly_name
+  - device_class
+  - icon
+  - unit_of_measurement
+
+# Configure a default setup of Home Assistant (frontend, api, etc)
+# default_config:
+
+# Show the introduction message on startup.
+#introduction:
+
+# Uncomment this if you are using SSL/TLS, running in Docker container, etc.
+# http:
+#   base_url: example.duckdns.org:8123
+http:
+  use_x_forwarded_for: true
+  trusted_proxies: !secret http_trusted_proxies
+  ip_ban_enabled: false
+
+# Discover some devices automatically
+discovery:
+
+logger:
+  default: error
+  # logs:
+  #   homeassistant.components.homekit: debug
+  #   pyhap: debug
+
+telegram_bot:
+  - platform: broadcast
+    api_key: !secret telegram_bot_api_key
+    allowed_chat_ids:
+      - !secret telegram_bot_chat_id
+      
+notify:
+  - name: notify
+    platform: group
+    services:
+      - service: telegram 
+  - name: telegram
+    platform: telegram
+    chat_id: !secret telegram_bot_chat_id
+
+weather:
+  - platform: darksky
+    api_key: !secret darksky_api_key
+    
+binary_sensor:
+  - platform: ping
+    name: Home Internet Status
+    host: 8.8.8.8
+    scan_interval: 10
+    count: 2
+    
+  - platform: template
+    sensors:
+      bath_boiler_heating:
+        friendly_name: "Bath Boiler Heating"
+        device_class: heat
+        value_template: "{{ states('sensor.bath_boiler_relay_energy_power')|int > 10 }}"
+    
+  - platform: rest
+    name: home_cam10_camera_switch
+    resource: !secret int_cam10_config_camera_url
+    authentication: basic
+    username: !secret int_cam10_user
+    password: !secret int_cam10_pass
+    value_template: '{{ value_json.SWITCH_ON }}'
+
+sensor: !include conf_sensor.yaml
+
+mqtt: !include conf_mqtt.yaml
+
+switch: !include conf_switch.yaml
+
+light: !include conf_light.yaml
+      
+input_select:
+  kitchen_vent_mode:
+    name: "Kitchen Vent Mode"
+    icon: mdi:fan
+    options:
+      - "auto"
+      - "speed1"
+      - "speed2"
+      - "off"
+    initial: "auto"
+    
+template:
+  - sensor:
+      - name: "Bedroom Target Temp"
+        state: "{{ state_attr('climate.bedroom_ac', 'temperature') | float }}"
+  - binary_sensor:
+      - name: "Bedroom AC Power"
+        state: "{% if is_state('sensor.bedroom_areapower_ac_energy_power','unknown') %}unknown{% elif states('sensor.bedroom_areapower_ac_energy_power')|int > 8 %}on{% else %}off{% endif %}"
+        # availability: "{% if is_state('sensor.bedroom_areapower_ac_energy_apparentpower','unknown') %}False{% else %}True{% endif %}"
+    
+# Example configuration.yaml entry
+alarm_control_panel:
+  - platform: template
+    panels:
+      home_alarm:
+        name: Home Alarm
+        value_template: "{% if is_state('binary_sensor.home_gateway_ajax_armed','on') %}armed_away{% else %}disarmed{% endif %}"
+        # arm_away:
+        #   service: alarm_control_panel.alarm_arm_away
+        #   target:
+        #     entity_id: alarm_control_panel.real_alarm
+        #   data:
+        #     code: !secret alarm_code
+        # arm_home:
+        #   service: alarm_control_panel.alarm_arm_home
+        #   target:
+        #     entity_id: alarm_control_panel.real_alarm
+        #   data:
+        #     code: !secret alarm_code
+        # disarm:
+        #   - condition: state
+        #     entity_id: device_tracker.paulus
+        #     state: "home"
+        #   - service: alarm_control_panel.alarm_arm_home
+        #     target:
+        #       entity_id: alarm_control_panel.real_alarm
+        #     data:
+        #       code: !secret alarm_code
+    
+rest_command:
+  syno_home_mode_on:
+    url: !secret home_mode_on_url
+    verify_ssl: false
+  syno_home_mode_off:
+    url: !secret home_mode_off_url
+    verify_ssl: false
+  cam01_rec_on:
+    url: !secret cam01_rec_on_url
+    verify_ssl: false
+  cam01_rec_off:
+    url: !secret cam01_rec_off_url
+    verify_ssl: false
+  int_cam10_rec_on:
+    url: !secret int_cam10_rec_on_url
+    username: !secret int_cam10_user
+    password: !secret int_cam10_pass
+  int_cam10_rec_off:
+    url: !secret int_cam10_rec_off_url
+    username: !secret int_cam10_user
+    password: !secret int_cam10_pass
+
+utility_meter:
+  bedroom_power_bed_energy_daily:
+    source: sensor.bedroom_power_bed_energy_total
+    cycle: daily
+  bedroom_power_bed_energy_monthly:
+    source: sensor.bedroom_power_bed_energy_total
+    cycle: monthly
+    
+# Text to speech
+tts:
+  - platform: picotts
+  - platform: marytts
+  - platform: voicerss
+    api_key: !secret tts_voicerss_api_key
+    codec: mp3
+    format: '8khz_8bit_mono'
+  
+media_player:
+  # - platform: snapcast
+  #   host: 192.168.10.5
+  # - platform: volumio
+  #   host: 192.168.5.194
+  #   port: 3000
+  # - platform: snapcast
+  #   host: 192.168.5.194
+  # - platform: mpd
+  #   name: volumio_mpd
+  #   host: 192.168.5.194
+  # - platform: mpd
+  #   name: ha_mpd
+  #   host: 192.168.5.5
+  # - platform: snapcast
+  #   host: 127.0.0.1
+  
+cast:
+  media_player:
+    # - host: 192.168.10.5
+    - host: 192.168.1.33
+#     - host: 192.168.1.28
+#     - host: 192.168.1.48
+#     - host: 192.168.1.55
+#     - host: 192.168.1.82
+
+spotcast: 
+  sp_dc: !secret spotify_dc
+  sp_key: !secret spotify_key
+  
+generic_hygrostat:
+  - name: Bedroom Hygrostat
+    device_class: "humidifier"
+    humidifier: switch.bedroom_humidifier_relay
+    target_sensor: sensor.bedroom_humidity
+    min_humidity: 45
+    max_humidity: 55
+    target_humidity: 45
+    dry_tolerance: 5
+    wet_tolerance: 0
+    away_humidity: 40
+    away_fixed: true
+    min_cycle_duration:
+      minutes: 30
+    keep_alive:
+      minutes: 5
+      
+  - name: Bath Vent
+    device_class: "dehumidifier"
+    humidifier: switch.bath_vent
+    target_sensor: sensor.bath_lobby_diff_humidity
+    min_humidity: 0
+    max_humidity: 6
+    min_cycle_duration:
+      minutes: 15
+    keep_alive:
+      minutes: 5
+    # sensor_stale_duration: 00:15:00
+
+# homekit: !include conf_homekit.yaml
+
+climate: !include conf_climate.yaml
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

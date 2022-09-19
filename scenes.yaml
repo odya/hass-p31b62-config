@@ -1,0 +1,48 @@
+- id: '1605314972308'
+  name: '[Bedroom Gateway Light] Turn on'
+  entities:
+    light.bedroom_light_gateway:
+      supported_color_modes:
+      - hs
+      color_mode: hs
+      brightness: 255
+      hs_color:
+      - 44.384
+      - 28.627
+      rgb_color:
+      - 255
+      - 236
+      - 182
+      xy_color:
+      - 0.385
+      - 0.384
+      friendly_name: Bedroom Gateway Light
+      supported_features: 17
+      room: bedroom
+      state: 'on'
+    script.bedroom_gateway_light_fade_out:
+      last_triggered: '2021-09-19T00:18:19.042672+00:00'
+      mode: restart
+      current: 0
+      friendly_name: Bedroom Gateway Light Fade Out
+      room: bedroom
+      state: 'off'
+- id: '1605316342561'
+  name: gateway light test2
+  entities:
+    light.bedroom_light_gateway:
+      brightness: 255
+      hs_color:
+      - 315.294
+      - 100
+      rgb_color:
+      - 255
+      - 0
+      - 190
+      xy_color:
+      - 0.478
+      - 0.197
+      friendly_name: Bedroom Gateway Light
+      supported_features: 17
+      room: bedroom
+      state: 'on'
