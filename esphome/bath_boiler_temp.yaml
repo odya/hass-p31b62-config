@@ -1,0 +1,102 @@
+esphome:
+  name: bath_boiler_temp
+  platform: ESP8266
+  board: d1_mini
+
+substitutions:
+  node_name: "Bath Boiler Temp"
+  node_id: bath_boiler_temp
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${node_name} Fallback"
+    password: !secret ap_password
+
+# captive_portal:
+
+ota:
+  id: "${node_id}_ota"
+  password: !secret ota_password
+  
+api:
+  password: !secret api_password
+  reboot_timeout: 10min
+  encryption:
+    key: !secret api_ecryption_key
+    
+web_server:
+  port: 80
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_pass
+  ota: false
+
+logger:
+  level: INFO
+  baud_rate: 0
+  esp8266_store_log_strings_in_flash: false
+    
+# mqtt:
+#   broker: !secret mqtt_host
+#   username: !secret mqtt_user
+#   password: !secret mqtt_pass
+#   topic_prefix: "esphome/${node_id}"
+#   discovery: false
+#   id: "${node_id}"
+
+# --- CUSTOM CONFIG SECTION ---
+
+globals:
+  - id: prev_hot
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: prev_cold
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+
+dallas:
+  - pin: GPIO5
+    update_interval: 10s
+
+sensor:
+  - platform: dallas
+    address: 0xEA05178086D9FF28
+    id: "hot_temperature"
+    name: "${node_name} Hot Temperature"
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: hot_delta
+            state: !lambda return (x - id(prev_hot));
+        - globals.set:
+            id: prev_hot
+            value: !lambda return x;
+  - platform: dallas
+    address: 0x738118511662FF28
+    id: "cold_temperature"
+    name: "${node_name} Cold Temperature"
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: cold_delta
+            state: !lambda return (x - id(prev_cold));
+        - globals.set:
+            id: prev_cold
+            value: !lambda return x;
+
+  - platform: template
+    name: "${node_name} Hot Delta"
+    id: "hot_delta"
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer"
+    update_interval: 10s
+  - platform: template
+    name: "${node_name} Cold Delta"
+    id: "cold_delta"
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer"
+    update_interval: 10s

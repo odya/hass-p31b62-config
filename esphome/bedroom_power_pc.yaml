@@ -1,0 +1,303 @@
+esphome:
+  name: bedroom_power_pc
+  platform: ESP8266
+  board: esp01_1m
+  esp8266_restore_from_flash: yes
+  
+substitutions:
+  node_name: "Bedroom Power Pc"
+  node_id: bedroom_power_pc
+  voltage_limit: "250"
+  current_limit: "10"
+  update_interval: 1s
+  stat_window_size: "60"
+  force_update: "true"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${node_name} Fallback"
+    password: !secret ap_password
+    ap_timeout: 5min
+    
+mqtt:
+  broker: !secret mqtt_host
+  username: !secret mqtt_user
+  password: !secret mqtt_pass
+  topic_prefix: "esphome/${node_id}"
+  discovery: false
+  id: "${node_id}"
+
+# Enable Home Assistant API
+api:
+  password: !secret api_password
+  reboot_timeout: 10min
+
+ota:
+  password: !secret ota_password
+  
+captive_portal:
+
+web_server:
+  port: 80
+
+#Enable logging
+logger:
+  level: INFO
+  
+# memory:
+  
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    
+globals:
+   - id: is_overload_detected
+     type: int
+     restore_value: no
+     initial_value: "0"
+    
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      inverted: true
+    name: "${node_name} Button"
+    on_press:
+      - switch.toggle: relay
+
+output:
+  - platform: gpio
+    pin: GPIO00
+    inverted: true
+    id: led1
+
+status_led:
+  pin:
+    number: GPIO02
+    inverted: true
+    
+script:
+  - id: do_overload_error
+    then:
+      - switch.turn_off: relay
+      - globals.set:
+          id: is_overload_detected
+          value: '1'
+      - while:
+          condition:
+            lambda: |-
+              return id(is_overload_detected) > 0;
+          then:
+            - output.turn_on: led1
+            - delay: 1s
+            - output.turn_off: led1
+            - delay: 1s
+  
+switch:
+- platform: gpio
+  pin: GPIO15
+  id: relay
+  icon: mdi:power-socket-eu
+  name: "${node_name} Relay"
+- platform: shutdown
+  id: do_shutdown
+  internal: true
+
+sensor:
+  - platform: uptime
+    name: "${node_name} Uptime"
+    id: "${node_id}_uptime"
+    unit_of_measurement: "min"
+    filters:
+    - lambda: return x / 60.0;
+  - platform: wifi_signal
+    name: "${node_name} WiFi"
+    
+  - platform: hlw8012
+    sel_pin:
+      number: GPIO12
+      inverted: true
+    cf_pin: GPIO05
+    cf1_pin: GPIO14
+    current_resistor: 0.00250
+    voltage_divider: 920
+    change_mode_every: 4
+    update_interval: 125ms
+    
+    voltage:
+      name: "${node_name} Voltage"
+      id: "voltage"
+      unit_of_measurement: V
+      icon: mdi:flash-circle
+      accuracy_decimals: 1
+      internal: true
+      filters:
+        - median: &raw_spikes_filter_params
+            window_size: 4
+            send_every: 4
+            send_first_at: 4
+      on_value_range:
+        above: "${voltage_limit}"
+        then:
+          - logger.log: 
+              format: "Voltage limit exceeded with value %.1f"
+              args: [ 'x' ]
+              level: WARN
+          - homeassistant.service:
+              service: notify.persistent_notification
+              data:
+                title: "[Alarm] ${node_name} power alert"
+              data_template:
+                message: "Voltage limit exceeded with value {{ val }}. Max allowed: ${voltage_limit}."
+              variables:
+                val: |-
+                  return x;
+          - script.execute: do_overload_error
+          - script.wait: do_overload_error
+                    
+    current:
+      name: "${node_name} Current"
+      id: "current"
+      unit_of_measurement: A
+      accuracy_decimals: 2
+      icon: mdi:flash-circle
+      internal: true
+      filters:
+        - median: *raw_spikes_filter_params
+      on_value_range:
+        above: "${current_limit}"
+        then:
+          - logger.log: 
+              format: "Current limit exceeded with value %.1f"
+              args: [ 'x' ]
+              level: WARN
+          - homeassistant.service:
+              service: notify.persistent_notification
+              data:
+                title: "[Alarm] ${node_name} power alert"
+              data_template:
+                message: "Current limit exceeded with value {{ val }}. Max allowed: ${current_limit}."
+              variables:
+                val: |-
+                  return x;
+          - script.execute: do_overload_error
+          - script.wait: do_overload_error
+            
+  - platform: template
+    name: "${node_name} Voltage Min"
+    unit_of_measurement: V
+    icon: mdi:flash-circle
+    device_class: voltage
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - min: &filter_stat_params
+        window_size: "${stat_window_size}"
+        send_every: "${stat_window_size}"
+        send_first_at: "${stat_window_size}"
+    lambda: "return id(voltage).state;"
+            
+  - platform: template
+    name: "${node_name} Voltage Max"
+    unit_of_measurement: V
+    icon: mdi:flash-circle
+    device_class: voltage
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - max: *filter_stat_params
+    lambda: "return id(voltage).state;"
+            
+  - platform: template
+    name: "${node_name} Voltage Avg"
+    unit_of_measurement: V
+    icon: mdi:flash-circle
+    device_class: voltage
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - median: *filter_stat_params
+    lambda: "return id(voltage).state;"
+            
+  - platform: template
+    name: "${node_name} Current Min"
+    unit_of_measurement: A
+    icon: mdi:flash-circle
+    device_class: current
+    accuracy_decimals: 2
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - min: *filter_stat_params
+    lambda: "return id(current).state;"
+            
+  - platform: template
+    name: "${node_name} Current Max"
+    unit_of_measurement: A
+    icon: mdi:flash-circle
+    device_class: current
+    accuracy_decimals: 2
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - max: *filter_stat_params
+    lambda: "return id(current).state;"
+            
+  - platform: template
+    name: "${node_name} Current Avg"
+    unit_of_measurement: A
+    icon: mdi:flash-circle
+    device_class: current
+    accuracy_decimals: 2
+    force_update: "${force_update}"
+    update_interval: "${update_interval}"
+    filters:
+    - median: *filter_stat_params
+    lambda: "return id(current).state;"
+    
+  # - platform: template
+  #   name: "${node_name} Power Min"
+  #   unit_of_measurement: W
+  #   icon: mdi:flash-circle
+  #   update_interval: "${update_interval}"
+  #   filters:
+  #   - min:
+  #       window_size: "${stat_window_size}"
+  #       send_every: "${stat_window_size}"
+  #       send_first_at: "${stat_window_size}"
+  #   lambda: "return id(voltage).state * id(current).state;"
+    
+  # - platform: template
+  #   name: "${node_name} Power Max"
+  #   unit_of_measurement: W
+  #   icon: mdi:flash-circle
+  #   update_interval: "${update_interval}"
+  #   filters:
+  #   - max:
+  #       window_size: "${stat_window_size}"
+  #       send_every: "${stat_window_size}"
+  #       send_first_at: "${stat_window_size}"
+  #   lambda: "return id(voltage).state * id(current).state;"
+    
+  # - platform: template
+  #   name: "${node_name} Power Avg"
+  #   unit_of_measurement: W
+  #   icon: mdi:flash-circle
+  #   update_interval: "${update_interval}"
+  #   filters:
+  #   - sliding_window_moving_average:
+  #       window_size: "${stat_window_size}"
+  #       send_every: "${stat_window_size}"
+  #   lambda: "return id(voltage).state * id(current).state;"
+  
+  # - platform: total_daily_energy
+  #   name: "${node_name} Total Daily Energy"
+  #   power_id: "${node_id}_wattage"
+  #   filters:
+  #       # Multiplication factor from W to kW is 0.001
+  #       - multiply: 0.001
+  #       - heartbeat: 60s
+  #   unit_of_measurement: kWh
+  #   icon: mdi:clock-alert

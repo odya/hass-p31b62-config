@@ -1,0 +1,209 @@
+esphome:
+  name: kitchen_vent
+  platform: ESP8266
+  board: esp01_1m
+  
+substitutions:
+  node_name: "Kitchen Vent"
+  node_id: kitchen_vent
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${node_name} Fallback"
+    password: !secret ap_password
+
+# captive_portal:
+
+ota:
+  id: "${node_id}_ota"
+  password: !secret ota_password
+  
+api:
+  password: !secret api_password
+  reboot_timeout: 10min
+  encryption:
+    key: !secret api_ecryption_key
+    
+web_server:
+  port: 80
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_pass
+  ota: false
+
+logger:
+  level: INFO
+  baud_rate: 0
+  esp8266_store_log_strings_in_flash: false
+    
+# mqtt:
+#   broker: !secret mqtt_host
+#   username: !secret mqtt_user
+#   password: !secret mqtt_pass
+#   topic_prefix: "esphome/${node_id}"
+#   discovery: false
+#   id: "${node_id}"
+
+#dallas:
+#  - pin: GPIO14
+    
+i2c:
+  - id: bus_a
+    sda: GPIO3
+    scl: GPIO1
+    scan: false
+    
+status_led:
+  pin:
+    number: GPIO13
+    inverted: yes
+    
+script:
+#  - id: do_shutdown
+#    then:
+#      - mqtt.publish:
+#          topic: /home/alert
+#          payload: "Detected bath_vent high temperature. Shutting down."
+#      - switch.turn_on: bath_vent_shutdown
+      
+  - id: do_vent_control
+    then:
+      - if:
+          condition:
+            lambda: 'return id(kitchen_vent_mode).state == "speed1";'
+          then:
+            - switch.turn_off: kitchen_vent_relay_2
+            - switch.turn_on: kitchen_vent_relay_1
+      - if:
+          condition:
+            lambda: 'return id(kitchen_vent_mode).state == "speed2";'
+          then:
+            - switch.turn_off: kitchen_vent_relay_1
+            - switch.turn_on: kitchen_vent_relay_2
+      - if:
+          condition:
+            lambda: 'return id(kitchen_vent_mode).state == "off";'
+          then:
+            - switch.turn_off: kitchen_vent_relay_1
+            - switch.turn_off: kitchen_vent_relay_2
+      - if:
+          condition:
+            lambda: 'return id(kitchen_vent_mode).state == "auto";'
+          then:
+            - if:
+                condition:
+                  not:
+                    script.is_running: do_auto_mode
+                then:
+                  - logger.log: "auto_mode"
+                  - script.execute: do_auto_mode
+                  
+  - id: do_auto_mode
+    then:
+      - if:
+            condition:
+              lambda: 'return id(kitchen_vent_humidity).state > 60;'
+            then:
+              - logger.log: "-- ON cycle. LOCK. slider value above 60"
+              - switch.turn_on: kitchen_vent_relay_1
+              - switch.turn_off: kitchen_vent_relay_2
+              - wait_until:
+                  lambda: |- 
+                    if(id(kitchen_vent_mode).state == "auto") {
+                      if(id(kitchen_vent_humidity).state < 65) {
+                        ESP_LOGD("custom", "ON cycle. hum below 60. releasing after 600000sec");
+                        delay(600000);
+                        id(kitchen_vent_relay_1).turn_off();
+                        id(kitchen_vent_relay_2).turn_off();
+                        return true;
+                      }
+                      return false;
+                    } else {
+                      return true;
+                    }
+              - logger.log: "-- ON cycle. RELEASE"
+            else:
+              - logger.log: "-- OFF cycle"
+              - switch.turn_off: kitchen_vent_relay_1
+              - switch.turn_off: kitchen_vent_relay_2
+    
+sensor:
+  - platform: uptime
+    name: "${node_name} Uptime"
+    unit_of_measurement: "min"
+    filters:
+    - lambda: return x / 60.0;
+  - platform: wifi_signal
+    name: "${node_name} WiFi"
+#  - platform: dallas
+#    name: "Bath Vent Temp Int"
+#    id: bath_vent_temp_int
+#    address: 0xB60316C24A0AFF28
+#    accuracy_decimals: 1
+#    on_value_range:
+#      above: 50
+#      then:
+#        - script.execute: do_shutdown
+    
+  - platform: htu21d
+    address: 0x40
+    temperature:
+      name: "${node_name} Temperature"
+      id: "${node_id}_temperature"
+      accuracy_decimals: 1
+    humidity:
+      name: "${node_name} Humidity"
+      id: "${node_id}_humidity"
+      accuracy_decimals: 1
+      # filters:
+      #   - offset: -5
+    
+  # - platform: bmp085
+  #   address: 0x77
+  #   temperature:
+  #     name: "Kitchen Vent Temperature 2"
+  #     id: kitchen_vent_temperature_2
+  #     accuracy_decimals: 1
+  #     internal: true
+  #     filters:
+  #       - offset: 1.4
+  #   pressure:
+  #     name: "Kitchen Vent Pressure"
+  #     id: kitchen_vent_pressure
+  #     accuracy_decimals: 1
+    
+  # - platform: template
+  #   name: "Kitchen Vent Temperature"
+  #   id: kitchen_vent_temperature
+  #   unit_of_measurement: "°C"
+  #   icon: "mdi:thermometer"
+  #   lambda: return (id(kitchen_vent_temperature_1).state + id(kitchen_vent_temperature_2).state) / 2;
+  #   on_value:
+  #     then:
+  #       - script.execute: do_vent_control
+        
+text_sensor:
+  - platform: homeassistant
+    name: "${node_name} Mode"
+    id: "${node_id}_mode"
+    entity_id: input_select.kitchen_vent_mode
+    on_value:
+      then:
+        - logger.log: "- mode changed"
+        - script.execute: do_vent_control
+        
+switch:
+#  - platform: shutdown
+#    name: "Bath Vent Shutdown"
+#    id: "bath_vent_shutdown"
+#    internal: true
+  - platform: gpio
+    name: "${node_name} Speed1 Relay"
+    id: "${node_id}_relay_1"
+    pin: 5
+  - platform: gpio
+    name: "${node_name} Speed2 Relay"
+    id: "${node_id}_relay_2"
+    pin: 12

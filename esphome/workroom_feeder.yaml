@@ -1,0 +1,518 @@
+esphome:
+  name: workroom_feeder
+  platform: ESP8266
+  board: d1_mini
+  on_boot:
+    then:
+      - output.turn_on: motor_stby
+      - light.turn_on:
+          id: light_led_white
+          transition_length: 3s
+      - delay: 3s
+      - light.turn_off: light_led_white
+  
+substitutions:
+  node_name: "Workroom Feeder"
+  node_id: workroom_feeder
+  ha_notify_service: notify.notify
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${node_name} Fallback"
+    password: !secret ap_password
+
+# captive_portal:
+
+ota:
+  id: "${node_id}_ota"
+  password: !secret ota_password
+  
+api:
+  password: !secret api_password
+  reboot_timeout: 10min
+  encryption:
+    key: !secret api_ecryption_key
+  services:
+    - service: do_feed
+      variables:
+        sections: int
+      then:
+        - globals.set:
+            id: sections_to_scroll
+            value: !lambda |-
+              return sections;
+        - script.execute: do_feed
+    
+web_server:
+  port: 80
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_pass
+  ota: false
+
+logger:
+  level: INFO
+  baud_rate: 0
+  esp8266_store_log_strings_in_flash: false
+
+# --- CUSTOM CONFIG SECTION ---
+  
+globals:
+  - id: sections_to_scroll
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: sections_counter
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: minutes_to_next_feed
+    type: int
+    restore_value: no
+    initial_value: '0'
+  
+time:
+  - platform: homeassistant
+    id: time_platform
+    on_time:
+      - seconds: /10
+        then:
+          - output.turn_on: hopper_sensor_emitter
+          - delay: 3s
+          - lambda: |-
+              //ESP_LOGI("publish", "%.2f", id(hopper_sensor_detector).state);
+              if (id(hopper_sensor_detector).state < 1.5) {
+                id(hopper_empty).publish_state(true);
+              } else {
+                id(hopper_empty).publish_state(false);
+              }
+          - delay: 1s
+          - output.turn_off: hopper_sensor_emitter
+      - minutes: /1
+        then:
+          - lambda: |-
+              if (id(minutes_to_next_feed) > 0) {
+                id(minutes_to_next_feed) -= 1;
+                if (id(minutes_to_next_feed) <= 0) {
+                  ESP_LOGI("publish", "FEED");
+                  id(minutes_to_next_feed) = id(feed_interval).state * 60;
+                }
+                id(next_feed_time).publish_state( (float) id(minutes_to_next_feed) );
+              }
+  
+i2c:
+  sda: D2
+  scl: D1
+  scan: false
+  id: bus_a
+  
+ads1115:
+  - address: 0x48
+ 
+script: 
+  - id: do_feed
+    then:
+      - output.turn_off: motor_stby
+      - globals.set:
+          id: sections_counter
+          value: '0'
+      - lambda: !lambda |-
+          id(sections_sensor_detector).set_update_interval(50);
+          id(sections_sensor_detector).call_setup();
+      - delay: 1s
+      - switch.turn_on: motor2
+      - switch.turn_off: motor1
+      # - delay: 3s
+      - script.execute: check_sections_counter
+      - wait_until:
+          lambda: |-
+            return id(sections_counter) > id(sections_to_scroll);
+      - delay: 50ms
+      - switch.turn_on: motor1
+      - if:
+          condition:
+            and:
+              - lambda: 'return id(sections_counter) > 0;'
+          then:
+            - homeassistant.service:
+                service: "${ha_notify_service}"
+                data:
+                  title: "= Notify == ${node_name} ="
+                data_template:
+                  message: Feeded with {{ sections_processed }} portions.
+                variables:
+                  sections_processed: |-
+                    return id(sections_counter) - 1;
+      - delay: 700ms
+      - script.execute: motors_off
+      
+  - id: motors_off
+    then:
+      - output.turn_on: motor_stby
+      - switch.turn_off: motor1
+      - switch.turn_off: motor2
+      - globals.set:
+          id: sections_to_scroll
+          value: '0'
+      - lambda: !lambda |-
+          id(sections_sensor_detector).set_update_interval(1000);
+          id(sections_sensor_detector).call_setup();
+      
+  - id: check_sections_counter
+    mode: restart
+    then:
+      - delay: 5 sec
+      - if:
+          condition:
+            and:
+              - script.is_running: do_feed
+              - lambda: 'return id(sections_counter) == 0;'
+          then:
+            - script.execute: motors_off
+            - script.stop: do_feed
+            - homeassistant.service:
+                service: "${ha_notify_service}"
+                data:
+                  title: "= Alert == ${node_name} ="
+                  message: "Feeder motor seems to be stuck!"
+                  
+  - id: led_light_red
+    then:
+      - script.stop: led_pulse_white
+      - output.turn_off: led_white
+      - output.turn_on: led_red
+      
+  - id: led_light_white
+    then:
+      - script.stop: led_pulse_white
+      - output.turn_off: led_white
+      - output.turn_on: led_red
+      
+  - id: led_blink_red
+    then:
+      - output.turn_off: led_white
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+          - light.turn_on:
+                id: light_led_red
+                brightness: 1.0
+                transition_length: 0s
+          - delay: 1s 
+          - light.turn_off:
+              id: light_led_red
+              transition_length: 0s
+          - delay: 1s
+          
+  - id: led_pulse_white
+    then:
+      - output.turn_off: led_red
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+          - light.turn_on:
+                id: light_led_white
+                brightness: 1.0
+                transition_length: 1s
+          - delay: 2s 
+          - light.turn_off:
+              id: light_led_white
+              transition_length: 1s
+          - delay: 2s
+          
+number:
+  - platform: template
+    id: feed_interval
+    name: "${node_name} Feed Interval"
+    restore_value: false
+    initial_value: 4
+    optimistic: true
+    # set_action:
+    #   then:
+    #     - lambda: |-
+    #         ESP_LOGI("publish", "Feed Interval Updated %d", id(feed_interval).state);
+    #         id(minutes_to_next_feed) = id(feed_interval).state * 60;
+    min_value: 1
+    max_value: 24
+    step: 1
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("publish", "Feed Interval Value %.2f %.2f %.2f", id(feed_interval).state, x, x);
+            id(minutes_to_next_feed) = (int) x * 60;
+  
+sensor:
+  - platform: uptime
+    name: "${node_name} Uptime"
+    # unit_of_measurement: "days"
+    unit_of_measurement: "mins"
+    # accuracy_decimals: 2
+    filters:
+      - lambda: return x;
+    # - lambda: return x / 86400.0;
+    
+  - platform: wifi_signal
+    name: "${node_name} WiFi"
+    
+  - platform: adc
+    id: battery_voltage
+    pin: A0
+    update_interval: 10s
+    accuracy_decimals: 3
+    name: "${node_name} Battery Voltage"
+    filters:
+    - multiply: 3.3
+    - sliding_window_moving_average:
+        window_size: 6
+        send_every: 6
+        send_first_at: 3
+        
+  - platform: template
+    name: "${node_name} Battery Percent"
+    unit_of_measurement: "%"
+    icon: "mdi:battery-50"
+    lambda: |-
+      return id(battery_voltage).state;
+    update_interval: 60s
+    accuracy_decimals: 0
+    filters:
+    - calibrate_linear:
+      - 2.0 -> 0
+      - 3.1 -> 100  
+    - lambda: if (x > 100) {return 100;} else {return x;}
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x < 20;'
+            then:
+              - homeassistant.service:
+                  service: "${ha_notify_service}"
+                  data:
+                    title: "= Warning == ${node_name} ="
+                    message: "Battery low!"
+
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 4.096
+    id: hopper_sensor_detector
+    name: "${node_name} ADS1115 A0-GND"
+    update_interval: 1s
+    accuracy_decimals: 2
+    internal: true
+    filters:
+      - median:
+          window_size: 2
+          send_every: 2
+          send_first_at: 2
+    # on_value:
+    #   then:
+    #   - lambda: |-
+    #       ESP_LOGI("a0", "%.2f", x);
+          
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 2.048
+    id: sections_sensor_detector
+    name: "${node_name} ADS1115 A1-GND"
+    update_interval: 1000ms
+    accuracy_decimals: 2
+    internal: true
+    filters:
+      - lambda: if (x > 0) {return 1;} else {return 0;}
+      - delta: 0.5
+      # - debounce: 0.1s
+    on_value:
+      then:
+      - lambda: |-
+          if (x == 1) {
+            id(sections_counter) += 1;
+            //ESP_LOGI("sectionsSensor", "Sections counter: %d", id(sections_counter));
+          }
+          //ESP_LOGI("a1", "%.2f", x);
+          
+  - platform: ads1115
+    multiplexer: 'A2_GND'
+    gain: 1.024
+    id: usb_power_detector
+    name: "${node_name} ADS1115 A2-GND"
+    update_interval: 1s
+    accuracy_decimals: 4
+    internal: true
+    filters:
+      - delta: 0.001
+    on_value:
+      then:
+      - lambda: |-
+          //ESP_LOGI("a2", "%.2f", x);
+          if (id(usb_power_detector).state > 0.001) {
+            id(usb_power).publish_state(true);
+          } else {
+            ESP_LOGI("usbPower", "Val: %.2f State: %.2f", x, id(usb_power_detector).state);
+            id(usb_power).publish_state(false);
+          }
+          
+  - platform: template
+    id: next_feed_time
+    update_interval: 60s
+    name: "${node_name} Next Feed Time"
+          
+binary_sensor:
+  - platform: template
+    name: "${node_name} Hopper Empty"
+    id: hopper_empty
+    filters:
+      - delayed_on_off: 5min
+    on_press:
+      then:
+      - lambda: |-
+          ESP_LOGI("hopperEmpty", "pressed");
+      - script.execute: led_blink_red
+      - homeassistant.service:
+          service: "${ha_notify_service}"
+          data:
+            title: "= Warning == ${node_name} ="
+            message: "Meow! We are running out of treats!"
+    on_release:
+      then:
+      - lambda: |-
+          ESP_LOGI("hopperEmpty", "released");
+      - script.stop: led_blink_red
+          
+  - platform: template
+    name: "${node_name} USB Power"
+    id: usb_power
+    on_press:
+      then:
+      - lambda: |-
+          ESP_LOGI("usbPower", "pressed");
+      - script.stop: led_pulse_white
+    on_release:
+      then:
+      - lambda: |-
+          ESP_LOGI("usbPower", "released");
+      - script.execute: led_pulse_white
+  
+  - platform: gpio
+    name: "${node_name} Button"
+    pin:
+      number: RX
+      mode: INPUT_PULLUP
+      inverted: true
+    internal: true
+    filters:
+      - delayed_on: 50ms
+    on_multi_click:
+    # double click
+    - timing: 
+      - ON for at most 1s
+      - OFF for at most 1s
+      - ON for at most 1s
+      - OFF for at least 0.2s
+      then:
+      - lambda: |-
+          ESP_LOGI("button", "Button double-clicked");
+    # hold button
+    - timing: 
+      - ON for 1s to 5s
+      - OFF for at least 0.5s
+      then:
+        - lambda: |-
+            ESP_LOGI("button", "Button holded");
+    # single click
+    - timing:
+      - ON for at most 1s
+      - OFF for at least 0.5s
+      then:
+      - lambda: |-
+          ESP_LOGI("button", "Button clicked");
+      - globals.set:
+            id: sections_to_scroll
+            value: '1'
+      - script.execute: do_feed
+
+text_sensor:
+  - platform: template
+    id: battery_state
+    name: "${node_name} Battery State"
+    lambda: |-
+      if (id(usb_power_detector).state > 0.0050) {
+        return {"Charging"};
+      } else {
+        return {"Idle"};
+      };
+    update_interval: 60s
+    
+output:
+  - platform: esp8266_pwm
+    id: led_red
+    pin:
+      number: D0
+      # inverted: true
+  - platform: esp8266_pwm
+    id: led_white
+    pin:
+      number: D5
+      # inverted: true
+  - platform: gpio
+    id: motor_stby
+    pin: D6
+    inverted: true
+  - platform: gpio
+    id: hopper_sensor_emitter
+    pin:
+      number: D3
+      # mode: INPUT_PULLUP
+      inverted: true
+    
+    
+light:
+  - platform: monochromatic
+    id: light_led_white
+    name: "${node_name} Led White"
+    output: led_white
+    restore_mode: ALWAYS_OFF
+    internal: true
+  - platform: monochromatic
+    id: light_led_red
+    name: "${node_name} Led Red"
+    output: led_red
+    restore_mode: ALWAYS_OFF
+    internal: true
+    
+switch:
+  # MOTOR1 | MOTOR2 | RESULT
+  # high   | low    | rotate backward
+  # low    | high   | rotate forward
+  # high   | high   | break
+  - platform: gpio
+    internal: true
+    id: motor1
+    name: "${node_name} Motor1"
+    pin: D7
+  - platform: gpio
+    internal: true
+    id: motor2
+    name: "${node_name} Motor2"
+    pin: D8 
+
+  - platform: template
+    name: "${node_name} Feed One Portion"
+    lambda: |-
+      if (id(sections_to_scroll) > 0) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - globals.set:
+            id: sections_to_scroll
+            value: '1'
+      - script.execute: do_feed
+
+  - platform: restart
+    name: "${node_name} Restart"

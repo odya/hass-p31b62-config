@@ -1,0 +1,193 @@
+esphome:
+  name: home_air
+  platform: ESP8266
+  board: d1_mini
+  
+substitutions:
+  node_name: "Home Air"
+  node_id: home_air
+  ha_notify_service: notify.notify
+  
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${node_name} Fallback"
+    password: !secret ap_password
+
+# captive_portal:
+
+ota:
+  id: "${node_id}_ota"
+  password: !secret ota_password
+  
+api:
+  password: !secret api_password
+  reboot_timeout: 10min
+  encryption:
+    key: !secret api_ecryption_key
+    
+web_server:
+  port: 80
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_pass
+  ota: false
+
+logger:
+  level: INFO
+  baud_rate: 0
+  esp8266_store_log_strings_in_flash: false
+  
+time:
+  - platform: homeassistant
+    id: time_platform
+  
+i2c:
+  sda: D2
+  scl: D1
+  scan: true
+  id: bus_a
+  # frequency: 100kHz
+
+uart:
+  rx_pin: RX
+  baud_rate: 9600
+  
+sensor:
+  - platform: uptime
+    name: "${node_name} Uptime"
+    unit_of_measurement: "min"
+    filters:
+    - lambda: return x / 60.0;
+    
+  - platform: wifi_signal
+    name: "${node_name} WiFi"
+    
+  - platform: pmsx003
+    type: PMSX003
+    pm_1_0:
+      name: "${node_name} PM1"
+      id: pm_1
+      filters:
+        - throttle: 6s
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+    pm_2_5:
+      name: "${node_name} PM2.5"
+      id: pm_2_5
+      filters:
+        - throttle: 6s
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+    pm_10_0:
+      name: "${node_name} PM10"
+      id: pm_10
+      filters:
+        - throttle: 6s
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+            
+  - platform: ccs811
+    eco2:
+      name: "${node_name} CCS811 eCO2"
+      # filters:
+      #   - lambda: if (x < 8000) {return x;} else {return {};}
+      #   - filter_out: 0.0
+      #   - sliding_window_moving_average:
+      #       window_size: 24
+      #       send_every: 6
+      #       send_first_at: 6
+    tvoc:
+      name: "${node_name} CCS811 TVOC"
+      # filters:
+      #   - lambda: if (x < 8000) {return x;} else {return {};}
+      #   - filter_out: 0.0
+      #   - sliding_window_moving_average:
+      #       window_size: 24
+      #       send_every: 6
+      #       send_first_at: 6
+    address: 0x5A
+    #baseline: 0xA468 #0x2F61
+    # baseline: 0x7467
+    update_interval: 10s
+    
+  # - platform: hdc1080
+  #   temperature:
+  #     name: "${node_name} hdc1080 Temperature"
+  #     filters:
+  #       - sliding_window_moving_average:
+  #           window_size: 6
+  #           send_every: 6
+  #   humidity:
+  #     name: "${node_name} hdc1080 Humidity"
+  #     filters:
+  #       - sliding_window_moving_average:
+  #           window_size: 6
+  #           send_every: 6
+  #   update_interval: 10s
+      
+  - platform: htu21d
+    temperature:
+      name: "${node_name} htu21d Temperature"
+      id: htu21d_temperature
+      internal: true
+    humidity:
+      name: "${node_name} htu21d Humidity"
+      id: htu21d_humidity
+      filters:
+        - offset: 6.0
+        - &10sec_avg_1min sliding_window_moving_average:
+            window_size: 6
+            send_every: 6
+            send_first_at: 6
+        # - calibrate_linear:
+        #     - 41.0 -> 45.0
+    update_interval: 10s
+    
+  - platform: bmp280
+    temperature:
+      name: "${node_name} BMP280 Temperature"
+      id: bmp280_temperature
+      filters: 
+        - offset: -0.5
+        - *10sec_avg_1min
+    pressure:
+      name: "${node_name} BMP280 Pressure"
+      id: bmp280_pressure
+      filters: 
+        - *10sec_avg_1min
+    address: 0x76
+    update_interval: 10s
+  - platform: template
+    name: "${node_name} BMP280 Altitude"
+    lambda: |-
+      const float STANDARD_SEA_LEVEL_PRESSURE = 1013.25; //in hPa, see note
+      return ((id(bmp280_temperature).state + 273.15) / 0.0065) *
+        (powf((STANDARD_SEA_LEVEL_PRESSURE / id(bmp280_pressure).state), 0.190234) - 1); // in meter
+    update_interval: 60s
+    icon: 'mdi:signal'
+    unit_of_measurement: 'm'
+  - platform: template
+    name: "${node_name} BMP280 Absolute Humidity"
+    lambda: |-
+      const float mw = 18.01534;    // molar mass of water g/mol
+      const float r = 8.31447215;   // Universal gas constant J/mol/K
+      return (6.112 * powf(2.718281828, (17.67 * id(bmp280_temperature).state) /
+        (id(bmp280_temperature).state + 243.5)) * id(htu21d_humidity).state * mw) /
+        ((273.15 + id(bmp280_temperature).state) * r); // in grams/m^3
+    accuracy_decimals: 2
+    update_interval: 60s
+    icon: 'mdi:water'
+    unit_of_measurement: 'g/m³'
+  - platform: template
+    name: "${node_name} BMP280 Dew Point"
+    lambda: |-
+      return (243.5*(log(id(htu21d_humidity).state/100)+((17.67*id(bmp280_temperature).state) /
+        (243.5+id(bmp280_temperature).state)))/(17.67-log(id(htu21d_humidity).state/100)-((17.67*id(bmp280_temperature).state) /
+        (243.5+id(bmp280_temperature).state))));
+    unit_of_measurement: °C
+    icon: 'mdi:thermometer-alert'
