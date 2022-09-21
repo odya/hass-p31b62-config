@@ -1,13 +1,10 @@
 # Gitignore settings for ESPHome
 # This is an example and may include too much for your use-case.
 # You can modify this file to suit your needs.
-*
-!/.gitignore
-
-!/*
-/.HA_VERSION
+/.esphome/
+**/.pioenvs/
+**/.piolibdeps/
+**/lib/
+**/src/
+**/platformio.ini
 /secrets.yaml
-
-!/esphome/**
-!/node-red/flows.json
-!/www/leather_bastards_max.pkg
