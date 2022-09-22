@@ -8,6 +8,7 @@
 /.HA_VERSION
 /secrets.yaml
 
+!/docs/**
 !/esphome/**
 !/node-red/flows.json
 !/www/leather_bastards_max.pkg
