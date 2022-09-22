@@ -1,5 +1,5 @@
 esphome:
-  name: outdoor-climate
+  name: outdoor_climate
   platform: ESP8266
   board: d1_mini
   

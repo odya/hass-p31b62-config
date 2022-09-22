@@ -1,5 +1,5 @@
 esphome:
-  name: home-gateway-ajax
+  name: home_gateway_ajax
   platform: ESP8266
   board: d1_mini
   
