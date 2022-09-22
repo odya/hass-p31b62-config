@@ -2,6 +2,7 @@
 Home Assistant & Node-Red configs for my long running P31B62 smart home project. That, unfortunately, was ended by russian invasion of Ukraine 🤬.
 
 
+
 ## Contents:
 - [Main HASS config](configuration.yaml)
 - Included HASS configs
@@ -22,3 +23,9 @@ Home Assistant & Node-Red configs for my long running P31B62 smart home project.
   - [Cheap module air quality monitor](esphome/home_air_monitor.yaml) `home_air_monitor.yaml` - Monitor your air quality using single platform and module replaceable components. Sensor list: PM, TVOC, eCO2, temperature, humidity, air pressure
   - [Ventilation control](esphome/kitchen_vent.yaml) `kitchen_vent.yaml` - Simple two-speed vent fan control.
   - [Outdoor climate sensor](esphome/outdoor_climate.yaml) `outdoor_climate.yaml` - Simple outdoor temperature/humidity sensor.
+
+
+## Screenshots:
+![photo_2022-09-16 19 47 50](https://user-images.githubusercontent.com/3900031/191849499-1e367dea-7c62-400c-9969-e706857ca633.jpeg)
+![photo_2022-09-16 19 48 49](https://user-images.githubusercontent.com/3900031/191849187-402f570f-7738-4a19-a762-a036426bf0a4.jpeg)
+![2022-09-16 19 40 56](https://user-images.githubusercontent.com/3900031/191849193-635c3223-d237-4577-b1c3-78f42502b712.jpg)
