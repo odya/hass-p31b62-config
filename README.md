@@ -1,6 +1,11 @@
 # hass-p31b62-config
 Home Assistant & Node-Red configs for my long running P31B62 smart home project. That, unfortunately, was ended by russian invasion of Ukraine 🤬.
 
+![photo_2022-09-16 19 47 50](https://user-images.githubusercontent.com/3900031/191849499-1e367dea-7c62-400c-9969-e706857ca633.jpeg)
+![photo_2022-09-16 19 48 49](https://user-images.githubusercontent.com/3900031/191849187-402f570f-7738-4a19-a762-a036426bf0a4.jpeg)
+![2022-09-16 19 40 56](https://user-images.githubusercontent.com/3900031/191849193-635c3223-d237-4577-b1c3-78f42502b712.jpg)
+
+
 
 ## Contents:
 - [Main HASS config](configuration.yaml)
